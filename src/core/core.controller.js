@@ -553,8 +553,9 @@ module.exports = function(Chart) {
 			// Built in hover styling
 			if (this.active.length && this.options.hover.mode) {
 				switch (this.options.hover.mode) {
-					case 'single':
-						this.getDatasetMeta(this.active[0]._datasetIndex).controller.setHoverStyle(this.active[0]);
+					case 'single':               
+                    this.getDatasetMeta(this.active[0]._datasetIndex).controller.setHoverStyle(this.active[0]);
+                    this.getDatasetMeta(this.active[0]._datasetIndex).controller.draw(0, this.active[0]._index);
 						break;
 					case 'label':
 					case 'dataset':

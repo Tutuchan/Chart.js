@@ -1,7 +1,7 @@
 /*!
  * Chart.js
  * http://chartjs.org/
- * Version: 2.0.2
+ * Version: 2.1.0
  *
  * Copyright 2016 Nick Downie
  * Released under the MIT license
@@ -10,6 +10,380 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 
 },{}],2:[function(require,module,exports){
+/* MIT license */
+var colorNames = require('color-name');
+
+module.exports = {
+   getRgba: getRgba,
+   getHsla: getHsla,
+   getRgb: getRgb,
+   getHsl: getHsl,
+   getHwb: getHwb,
+   getAlpha: getAlpha,
+
+   hexString: hexString,
+   rgbString: rgbString,
+   rgbaString: rgbaString,
+   percentString: percentString,
+   percentaString: percentaString,
+   hslString: hslString,
+   hslaString: hslaString,
+   hwbString: hwbString,
+   keyword: keyword
+}
+
+function getRgba(string) {
+   if (!string) {
+      return;
+   }
+   var abbr =  /^#([a-fA-F0-9]{3})$/,
+       hex =  /^#([a-fA-F0-9]{6})$/,
+       rgba = /^rgba?\(\s*([+-]?\d+)\s*,\s*([+-]?\d+)\s*,\s*([+-]?\d+)\s*(?:,\s*([+-]?[\d\.]+)\s*)?\)$/,
+       per = /^rgba?\(\s*([+-]?[\d\.]+)\%\s*,\s*([+-]?[\d\.]+)\%\s*,\s*([+-]?[\d\.]+)\%\s*(?:,\s*([+-]?[\d\.]+)\s*)?\)$/,
+       keyword = /(\w+)/;
+
+   var rgb = [0, 0, 0],
+       a = 1,
+       match = string.match(abbr);
+   if (match) {
+      match = match[1];
+      for (var i = 0; i < rgb.length; i++) {
+         rgb[i] = parseInt(match[i] + match[i], 16);
+      }
+   }
+   else if (match = string.match(hex)) {
+      match = match[1];
+      for (var i = 0; i < rgb.length; i++) {
+         rgb[i] = parseInt(match.slice(i * 2, i * 2 + 2), 16);
+      }
+   }
+   else if (match = string.match(rgba)) {
+      for (var i = 0; i < rgb.length; i++) {
+         rgb[i] = parseInt(match[i + 1]);
+      }
+      a = parseFloat(match[4]);
+   }
+   else if (match = string.match(per)) {
+      for (var i = 0; i < rgb.length; i++) {
+         rgb[i] = Math.round(parseFloat(match[i + 1]) * 2.55);
+      }
+      a = parseFloat(match[4]);
+   }
+   else if (match = string.match(keyword)) {
+      if (match[1] == "transparent") {
+         return [0, 0, 0, 0];
+      }
+      rgb = colorNames[match[1]];
+      if (!rgb) {
+         return;
+      }
+   }
+
+   for (var i = 0; i < rgb.length; i++) {
+      rgb[i] = scale(rgb[i], 0, 255);
+   }
+   if (!a && a != 0) {
+      a = 1;
+   }
+   else {
+      a = scale(a, 0, 1);
+   }
+   rgb[3] = a;
+   return rgb;
+}
+
+function getHsla(string) {
+   if (!string) {
+      return;
+   }
+   var hsl = /^hsla?\(\s*([+-]?\d+)(?:deg)?\s*,\s*([+-]?[\d\.]+)%\s*,\s*([+-]?[\d\.]+)%\s*(?:,\s*([+-]?[\d\.]+)\s*)?\)/;
+   var match = string.match(hsl);
+   if (match) {
+      var alpha = parseFloat(match[4]);
+      var h = scale(parseInt(match[1]), 0, 360),
+          s = scale(parseFloat(match[2]), 0, 100),
+          l = scale(parseFloat(match[3]), 0, 100),
+          a = scale(isNaN(alpha) ? 1 : alpha, 0, 1);
+      return [h, s, l, a];
+   }
+}
+
+function getHwb(string) {
+   if (!string) {
+      return;
+   }
+   var hwb = /^hwb\(\s*([+-]?\d+)(?:deg)?\s*,\s*([+-]?[\d\.]+)%\s*,\s*([+-]?[\d\.]+)%\s*(?:,\s*([+-]?[\d\.]+)\s*)?\)/;
+   var match = string.match(hwb);
+   if (match) {
+    var alpha = parseFloat(match[4]);
+      var h = scale(parseInt(match[1]), 0, 360),
+          w = scale(parseFloat(match[2]), 0, 100),
+          b = scale(parseFloat(match[3]), 0, 100),
+          a = scale(isNaN(alpha) ? 1 : alpha, 0, 1);
+      return [h, w, b, a];
+   }
+}
+
+function getRgb(string) {
+   var rgba = getRgba(string);
+   return rgba && rgba.slice(0, 3);
+}
+
+function getHsl(string) {
+  var hsla = getHsla(string);
+  return hsla && hsla.slice(0, 3);
+}
+
+function getAlpha(string) {
+   var vals = getRgba(string);
+   if (vals) {
+      return vals[3];
+   }
+   else if (vals = getHsla(string)) {
+      return vals[3];
+   }
+   else if (vals = getHwb(string)) {
+      return vals[3];
+   }
+}
+
+// generators
+function hexString(rgb) {
+   return "#" + hexDouble(rgb[0]) + hexDouble(rgb[1])
+              + hexDouble(rgb[2]);
+}
+
+function rgbString(rgba, alpha) {
+   if (alpha < 1 || (rgba[3] && rgba[3] < 1)) {
+      return rgbaString(rgba, alpha);
+   }
+   return "rgb(" + rgba[0] + ", " + rgba[1] + ", " + rgba[2] + ")";
+}
+
+function rgbaString(rgba, alpha) {
+   if (alpha === undefined) {
+      alpha = (rgba[3] !== undefined ? rgba[3] : 1);
+   }
+   return "rgba(" + rgba[0] + ", " + rgba[1] + ", " + rgba[2]
+           + ", " + alpha + ")";
+}
+
+function percentString(rgba, alpha) {
+   if (alpha < 1 || (rgba[3] && rgba[3] < 1)) {
+      return percentaString(rgba, alpha);
+   }
+   var r = Math.round(rgba[0]/255 * 100),
+       g = Math.round(rgba[1]/255 * 100),
+       b = Math.round(rgba[2]/255 * 100);
+
+   return "rgb(" + r + "%, " + g + "%, " + b + "%)";
+}
+
+function percentaString(rgba, alpha) {
+   var r = Math.round(rgba[0]/255 * 100),
+       g = Math.round(rgba[1]/255 * 100),
+       b = Math.round(rgba[2]/255 * 100);
+   return "rgba(" + r + "%, " + g + "%, " + b + "%, " + (alpha || rgba[3] || 1) + ")";
+}
+
+function hslString(hsla, alpha) {
+   if (alpha < 1 || (hsla[3] && hsla[3] < 1)) {
+      return hslaString(hsla, alpha);
+   }
+   return "hsl(" + hsla[0] + ", " + hsla[1] + "%, " + hsla[2] + "%)";
+}
+
+function hslaString(hsla, alpha) {
+   if (alpha === undefined) {
+      alpha = (hsla[3] !== undefined ? hsla[3] : 1);
+   }
+   return "hsla(" + hsla[0] + ", " + hsla[1] + "%, " + hsla[2] + "%, "
+           + alpha + ")";
+}
+
+// hwb is a bit different than rgb(a) & hsl(a) since there is no alpha specific syntax
+// (hwb have alpha optional & 1 is default value)
+function hwbString(hwb, alpha) {
+   if (alpha === undefined) {
+      alpha = (hwb[3] !== undefined ? hwb[3] : 1);
+   }
+   return "hwb(" + hwb[0] + ", " + hwb[1] + "%, " + hwb[2] + "%"
+           + (alpha !== undefined && alpha !== 1 ? ", " + alpha : "") + ")";
+}
+
+function keyword(rgb) {
+  return reverseNames[rgb.slice(0, 3)];
+}
+
+// helpers
+function scale(num, min, max) {
+   return Math.min(Math.max(min, num), max);
+}
+
+function hexDouble(num) {
+  var str = num.toString(16).toUpperCase();
+  return (str.length < 2) ? "0" + str : str;
+}
+
+
+//create a list of reverse color names
+var reverseNames = {};
+for (var name in colorNames) {
+   reverseNames[colorNames[name]] = name;
+}
+
+},{"color-name":3}],3:[function(require,module,exports){
+module.exports = {
+	"aliceblue": [240, 248, 255],
+	"antiquewhite": [250, 235, 215],
+	"aqua": [0, 255, 255],
+	"aquamarine": [127, 255, 212],
+	"azure": [240, 255, 255],
+	"beige": [245, 245, 220],
+	"bisque": [255, 228, 196],
+	"black": [0, 0, 0],
+	"blanchedalmond": [255, 235, 205],
+	"blue": [0, 0, 255],
+	"blueviolet": [138, 43, 226],
+	"brown": [165, 42, 42],
+	"burlywood": [222, 184, 135],
+	"cadetblue": [95, 158, 160],
+	"chartreuse": [127, 255, 0],
+	"chocolate": [210, 105, 30],
+	"coral": [255, 127, 80],
+	"cornflowerblue": [100, 149, 237],
+	"cornsilk": [255, 248, 220],
+	"crimson": [220, 20, 60],
+	"cyan": [0, 255, 255],
+	"darkblue": [0, 0, 139],
+	"darkcyan": [0, 139, 139],
+	"darkgoldenrod": [184, 134, 11],
+	"darkgray": [169, 169, 169],
+	"darkgreen": [0, 100, 0],
+	"darkgrey": [169, 169, 169],
+	"darkkhaki": [189, 183, 107],
+	"darkmagenta": [139, 0, 139],
+	"darkolivegreen": [85, 107, 47],
+	"darkorange": [255, 140, 0],
+	"darkorchid": [153, 50, 204],
+	"darkred": [139, 0, 0],
+	"darksalmon": [233, 150, 122],
+	"darkseagreen": [143, 188, 143],
+	"darkslateblue": [72, 61, 139],
+	"darkslategray": [47, 79, 79],
+	"darkslategrey": [47, 79, 79],
+	"darkturquoise": [0, 206, 209],
+	"darkviolet": [148, 0, 211],
+	"deeppink": [255, 20, 147],
+	"deepskyblue": [0, 191, 255],
+	"dimgray": [105, 105, 105],
+	"dimgrey": [105, 105, 105],
+	"dodgerblue": [30, 144, 255],
+	"firebrick": [178, 34, 34],
+	"floralwhite": [255, 250, 240],
+	"forestgreen": [34, 139, 34],
+	"fuchsia": [255, 0, 255],
+	"gainsboro": [220, 220, 220],
+	"ghostwhite": [248, 248, 255],
+	"gold": [255, 215, 0],
+	"goldenrod": [218, 165, 32],
+	"gray": [128, 128, 128],
+	"green": [0, 128, 0],
+	"greenyellow": [173, 255, 47],
+	"grey": [128, 128, 128],
+	"honeydew": [240, 255, 240],
+	"hotpink": [255, 105, 180],
+	"indianred": [205, 92, 92],
+	"indigo": [75, 0, 130],
+	"ivory": [255, 255, 240],
+	"khaki": [240, 230, 140],
+	"lavender": [230, 230, 250],
+	"lavenderblush": [255, 240, 245],
+	"lawngreen": [124, 252, 0],
+	"lemonchiffon": [255, 250, 205],
+	"lightblue": [173, 216, 230],
+	"lightcoral": [240, 128, 128],
+	"lightcyan": [224, 255, 255],
+	"lightgoldenrodyellow": [250, 250, 210],
+	"lightgray": [211, 211, 211],
+	"lightgreen": [144, 238, 144],
+	"lightgrey": [211, 211, 211],
+	"lightpink": [255, 182, 193],
+	"lightsalmon": [255, 160, 122],
+	"lightseagreen": [32, 178, 170],
+	"lightskyblue": [135, 206, 250],
+	"lightslategray": [119, 136, 153],
+	"lightslategrey": [119, 136, 153],
+	"lightsteelblue": [176, 196, 222],
+	"lightyellow": [255, 255, 224],
+	"lime": [0, 255, 0],
+	"limegreen": [50, 205, 50],
+	"linen": [250, 240, 230],
+	"magenta": [255, 0, 255],
+	"maroon": [128, 0, 0],
+	"mediumaquamarine": [102, 205, 170],
+	"mediumblue": [0, 0, 205],
+	"mediumorchid": [186, 85, 211],
+	"mediumpurple": [147, 112, 219],
+	"mediumseagreen": [60, 179, 113],
+	"mediumslateblue": [123, 104, 238],
+	"mediumspringgreen": [0, 250, 154],
+	"mediumturquoise": [72, 209, 204],
+	"mediumvioletred": [199, 21, 133],
+	"midnightblue": [25, 25, 112],
+	"mintcream": [245, 255, 250],
+	"mistyrose": [255, 228, 225],
+	"moccasin": [255, 228, 181],
+	"navajowhite": [255, 222, 173],
+	"navy": [0, 0, 128],
+	"oldlace": [253, 245, 230],
+	"olive": [128, 128, 0],
+	"olivedrab": [107, 142, 35],
+	"orange": [255, 165, 0],
+	"orangered": [255, 69, 0],
+	"orchid": [218, 112, 214],
+	"palegoldenrod": [238, 232, 170],
+	"palegreen": [152, 251, 152],
+	"paleturquoise": [175, 238, 238],
+	"palevioletred": [219, 112, 147],
+	"papayawhip": [255, 239, 213],
+	"peachpuff": [255, 218, 185],
+	"peru": [205, 133, 63],
+	"pink": [255, 192, 203],
+	"plum": [221, 160, 221],
+	"powderblue": [176, 224, 230],
+	"purple": [128, 0, 128],
+	"rebeccapurple": [102, 51, 153],
+	"red": [255, 0, 0],
+	"rosybrown": [188, 143, 143],
+	"royalblue": [65, 105, 225],
+	"saddlebrown": [139, 69, 19],
+	"salmon": [250, 128, 114],
+	"sandybrown": [244, 164, 96],
+	"seagreen": [46, 139, 87],
+	"seashell": [255, 245, 238],
+	"sienna": [160, 82, 45],
+	"silver": [192, 192, 192],
+	"skyblue": [135, 206, 235],
+	"slateblue": [106, 90, 205],
+	"slategray": [112, 128, 144],
+	"slategrey": [112, 128, 144],
+	"snow": [255, 250, 250],
+	"springgreen": [0, 255, 127],
+	"steelblue": [70, 130, 180],
+	"tan": [210, 180, 140],
+	"teal": [0, 128, 128],
+	"thistle": [216, 191, 216],
+	"tomato": [255, 99, 71],
+	"turquoise": [64, 224, 208],
+	"violet": [238, 130, 238],
+	"wheat": [245, 222, 179],
+	"white": [255, 255, 255],
+	"whitesmoke": [245, 245, 245],
+	"yellow": [255, 255, 0],
+	"yellowgreen": [154, 205, 50]
+};
+},{}],4:[function(require,module,exports){
 /* MIT license */
 
 module.exports = {
@@ -709,7 +1083,7 @@ for (var key in cssKeywords) {
   reverseKeywords[JSON.stringify(cssKeywords[key])] = key;
 }
 
-},{}],3:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 var conversions = require("./conversions");
 
 var convert = function() {
@@ -802,385 +1176,11 @@ Converter.prototype.getValues = function(space) {
 });
 
 module.exports = convert;
-},{"./conversions":2}],4:[function(require,module,exports){
-/* MIT license */
-var colorNames = require('color-name');
-
-module.exports = {
-   getRgba: getRgba,
-   getHsla: getHsla,
-   getRgb: getRgb,
-   getHsl: getHsl,
-   getHwb: getHwb,
-   getAlpha: getAlpha,
-
-   hexString: hexString,
-   rgbString: rgbString,
-   rgbaString: rgbaString,
-   percentString: percentString,
-   percentaString: percentaString,
-   hslString: hslString,
-   hslaString: hslaString,
-   hwbString: hwbString,
-   keyword: keyword
-}
-
-function getRgba(string) {
-   if (!string) {
-      return;
-   }
-   var abbr =  /^#([a-fA-F0-9]{3})$/,
-       hex =  /^#([a-fA-F0-9]{6})$/,
-       rgba = /^rgba?\(\s*([+-]?\d+)\s*,\s*([+-]?\d+)\s*,\s*([+-]?\d+)\s*(?:,\s*([+-]?[\d\.]+)\s*)?\)$/,
-       per = /^rgba?\(\s*([+-]?[\d\.]+)\%\s*,\s*([+-]?[\d\.]+)\%\s*,\s*([+-]?[\d\.]+)\%\s*(?:,\s*([+-]?[\d\.]+)\s*)?\)$/,
-       keyword = /(\w+)/;
-
-   var rgb = [0, 0, 0],
-       a = 1,
-       match = string.match(abbr);
-   if (match) {
-      match = match[1];
-      for (var i = 0; i < rgb.length; i++) {
-         rgb[i] = parseInt(match[i] + match[i], 16);
-      }
-   }
-   else if (match = string.match(hex)) {
-      match = match[1];
-      for (var i = 0; i < rgb.length; i++) {
-         rgb[i] = parseInt(match.slice(i * 2, i * 2 + 2), 16);
-      }
-   }
-   else if (match = string.match(rgba)) {
-      for (var i = 0; i < rgb.length; i++) {
-         rgb[i] = parseInt(match[i + 1]);
-      }
-      a = parseFloat(match[4]);
-   }
-   else if (match = string.match(per)) {
-      for (var i = 0; i < rgb.length; i++) {
-         rgb[i] = Math.round(parseFloat(match[i + 1]) * 2.55);
-      }
-      a = parseFloat(match[4]);
-   }
-   else if (match = string.match(keyword)) {
-      if (match[1] == "transparent") {
-         return [0, 0, 0, 0];
-      }
-      rgb = colorNames[match[1]];
-      if (!rgb) {
-         return;
-      }
-   }
-
-   for (var i = 0; i < rgb.length; i++) {
-      rgb[i] = scale(rgb[i], 0, 255);
-   }
-   if (!a && a != 0) {
-      a = 1;
-   }
-   else {
-      a = scale(a, 0, 1);
-   }
-   rgb[3] = a;
-   return rgb;
-}
-
-function getHsla(string) {
-   if (!string) {
-      return;
-   }
-   var hsl = /^hsla?\(\s*([+-]?\d+)(?:deg)?\s*,\s*([+-]?[\d\.]+)%\s*,\s*([+-]?[\d\.]+)%\s*(?:,\s*([+-]?[\d\.]+)\s*)?\)/;
-   var match = string.match(hsl);
-   if (match) {
-      var alpha = parseFloat(match[4]);
-      var h = scale(parseInt(match[1]), 0, 360),
-          s = scale(parseFloat(match[2]), 0, 100),
-          l = scale(parseFloat(match[3]), 0, 100),
-          a = scale(isNaN(alpha) ? 1 : alpha, 0, 1);
-      return [h, s, l, a];
-   }
-}
-
-function getHwb(string) {
-   if (!string) {
-      return;
-   }
-   var hwb = /^hwb\(\s*([+-]?\d+)(?:deg)?\s*,\s*([+-]?[\d\.]+)%\s*,\s*([+-]?[\d\.]+)%\s*(?:,\s*([+-]?[\d\.]+)\s*)?\)/;
-   var match = string.match(hwb);
-   if (match) {
-    var alpha = parseFloat(match[4]);
-      var h = scale(parseInt(match[1]), 0, 360),
-          w = scale(parseFloat(match[2]), 0, 100),
-          b = scale(parseFloat(match[3]), 0, 100),
-          a = scale(isNaN(alpha) ? 1 : alpha, 0, 1);
-      return [h, w, b, a];
-   }
-}
-
-function getRgb(string) {
-   var rgba = getRgba(string);
-   return rgba && rgba.slice(0, 3);
-}
-
-function getHsl(string) {
-  var hsla = getHsla(string);
-  return hsla && hsla.slice(0, 3);
-}
-
-function getAlpha(string) {
-   var vals = getRgba(string);
-   if (vals) {
-      return vals[3];
-   }
-   else if (vals = getHsla(string)) {
-      return vals[3];
-   }
-   else if (vals = getHwb(string)) {
-      return vals[3];
-   }
-}
-
-// generators
-function hexString(rgb) {
-   return "#" + hexDouble(rgb[0]) + hexDouble(rgb[1])
-              + hexDouble(rgb[2]);
-}
-
-function rgbString(rgba, alpha) {
-   if (alpha < 1 || (rgba[3] && rgba[3] < 1)) {
-      return rgbaString(rgba, alpha);
-   }
-   return "rgb(" + rgba[0] + ", " + rgba[1] + ", " + rgba[2] + ")";
-}
-
-function rgbaString(rgba, alpha) {
-   if (alpha === undefined) {
-      alpha = (rgba[3] !== undefined ? rgba[3] : 1);
-   }
-   return "rgba(" + rgba[0] + ", " + rgba[1] + ", " + rgba[2]
-           + ", " + alpha + ")";
-}
-
-function percentString(rgba, alpha) {
-   if (alpha < 1 || (rgba[3] && rgba[3] < 1)) {
-      return percentaString(rgba, alpha);
-   }
-   var r = Math.round(rgba[0]/255 * 100),
-       g = Math.round(rgba[1]/255 * 100),
-       b = Math.round(rgba[2]/255 * 100);
-
-   return "rgb(" + r + "%, " + g + "%, " + b + "%)";
-}
-
-function percentaString(rgba, alpha) {
-   var r = Math.round(rgba[0]/255 * 100),
-       g = Math.round(rgba[1]/255 * 100),
-       b = Math.round(rgba[2]/255 * 100);
-   return "rgba(" + r + "%, " + g + "%, " + b + "%, " + (alpha || rgba[3] || 1) + ")";
-}
-
-function hslString(hsla, alpha) {
-   if (alpha < 1 || (hsla[3] && hsla[3] < 1)) {
-      return hslaString(hsla, alpha);
-   }
-   return "hsl(" + hsla[0] + ", " + hsla[1] + "%, " + hsla[2] + "%)";
-}
-
-function hslaString(hsla, alpha) {
-   if (alpha === undefined) {
-      alpha = (hsla[3] !== undefined ? hsla[3] : 1);
-   }
-   return "hsla(" + hsla[0] + ", " + hsla[1] + "%, " + hsla[2] + "%, "
-           + alpha + ")";
-}
-
-// hwb is a bit different than rgb(a) & hsl(a) since there is no alpha specific syntax
-// (hwb have alpha optional & 1 is default value)
-function hwbString(hwb, alpha) {
-   if (alpha === undefined) {
-      alpha = (hwb[3] !== undefined ? hwb[3] : 1);
-   }
-   return "hwb(" + hwb[0] + ", " + hwb[1] + "%, " + hwb[2] + "%"
-           + (alpha !== undefined && alpha !== 1 ? ", " + alpha : "") + ")";
-}
-
-function keyword(rgb) {
-  return reverseNames[rgb.slice(0, 3)];
-}
-
-// helpers
-function scale(num, min, max) {
-   return Math.min(Math.max(min, num), max);
-}
-
-function hexDouble(num) {
-  var str = num.toString(16).toUpperCase();
-  return (str.length < 2) ? "0" + str : str;
-}
-
-
-//create a list of reverse color names
-var reverseNames = {};
-for (var name in colorNames) {
-   reverseNames[colorNames[name]] = name;
-}
-
-},{"color-name":5}],5:[function(require,module,exports){
-module.exports = {
-	"aliceblue": [240, 248, 255],
-	"antiquewhite": [250, 235, 215],
-	"aqua": [0, 255, 255],
-	"aquamarine": [127, 255, 212],
-	"azure": [240, 255, 255],
-	"beige": [245, 245, 220],
-	"bisque": [255, 228, 196],
-	"black": [0, 0, 0],
-	"blanchedalmond": [255, 235, 205],
-	"blue": [0, 0, 255],
-	"blueviolet": [138, 43, 226],
-	"brown": [165, 42, 42],
-	"burlywood": [222, 184, 135],
-	"cadetblue": [95, 158, 160],
-	"chartreuse": [127, 255, 0],
-	"chocolate": [210, 105, 30],
-	"coral": [255, 127, 80],
-	"cornflowerblue": [100, 149, 237],
-	"cornsilk": [255, 248, 220],
-	"crimson": [220, 20, 60],
-	"cyan": [0, 255, 255],
-	"darkblue": [0, 0, 139],
-	"darkcyan": [0, 139, 139],
-	"darkgoldenrod": [184, 134, 11],
-	"darkgray": [169, 169, 169],
-	"darkgreen": [0, 100, 0],
-	"darkgrey": [169, 169, 169],
-	"darkkhaki": [189, 183, 107],
-	"darkmagenta": [139, 0, 139],
-	"darkolivegreen": [85, 107, 47],
-	"darkorange": [255, 140, 0],
-	"darkorchid": [153, 50, 204],
-	"darkred": [139, 0, 0],
-	"darksalmon": [233, 150, 122],
-	"darkseagreen": [143, 188, 143],
-	"darkslateblue": [72, 61, 139],
-	"darkslategray": [47, 79, 79],
-	"darkslategrey": [47, 79, 79],
-	"darkturquoise": [0, 206, 209],
-	"darkviolet": [148, 0, 211],
-	"deeppink": [255, 20, 147],
-	"deepskyblue": [0, 191, 255],
-	"dimgray": [105, 105, 105],
-	"dimgrey": [105, 105, 105],
-	"dodgerblue": [30, 144, 255],
-	"firebrick": [178, 34, 34],
-	"floralwhite": [255, 250, 240],
-	"forestgreen": [34, 139, 34],
-	"fuchsia": [255, 0, 255],
-	"gainsboro": [220, 220, 220],
-	"ghostwhite": [248, 248, 255],
-	"gold": [255, 215, 0],
-	"goldenrod": [218, 165, 32],
-	"gray": [128, 128, 128],
-	"green": [0, 128, 0],
-	"greenyellow": [173, 255, 47],
-	"grey": [128, 128, 128],
-	"honeydew": [240, 255, 240],
-	"hotpink": [255, 105, 180],
-	"indianred": [205, 92, 92],
-	"indigo": [75, 0, 130],
-	"ivory": [255, 255, 240],
-	"khaki": [240, 230, 140],
-	"lavender": [230, 230, 250],
-	"lavenderblush": [255, 240, 245],
-	"lawngreen": [124, 252, 0],
-	"lemonchiffon": [255, 250, 205],
-	"lightblue": [173, 216, 230],
-	"lightcoral": [240, 128, 128],
-	"lightcyan": [224, 255, 255],
-	"lightgoldenrodyellow": [250, 250, 210],
-	"lightgray": [211, 211, 211],
-	"lightgreen": [144, 238, 144],
-	"lightgrey": [211, 211, 211],
-	"lightpink": [255, 182, 193],
-	"lightsalmon": [255, 160, 122],
-	"lightseagreen": [32, 178, 170],
-	"lightskyblue": [135, 206, 250],
-	"lightslategray": [119, 136, 153],
-	"lightslategrey": [119, 136, 153],
-	"lightsteelblue": [176, 196, 222],
-	"lightyellow": [255, 255, 224],
-	"lime": [0, 255, 0],
-	"limegreen": [50, 205, 50],
-	"linen": [250, 240, 230],
-	"magenta": [255, 0, 255],
-	"maroon": [128, 0, 0],
-	"mediumaquamarine": [102, 205, 170],
-	"mediumblue": [0, 0, 205],
-	"mediumorchid": [186, 85, 211],
-	"mediumpurple": [147, 112, 219],
-	"mediumseagreen": [60, 179, 113],
-	"mediumslateblue": [123, 104, 238],
-	"mediumspringgreen": [0, 250, 154],
-	"mediumturquoise": [72, 209, 204],
-	"mediumvioletred": [199, 21, 133],
-	"midnightblue": [25, 25, 112],
-	"mintcream": [245, 255, 250],
-	"mistyrose": [255, 228, 225],
-	"moccasin": [255, 228, 181],
-	"navajowhite": [255, 222, 173],
-	"navy": [0, 0, 128],
-	"oldlace": [253, 245, 230],
-	"olive": [128, 128, 0],
-	"olivedrab": [107, 142, 35],
-	"orange": [255, 165, 0],
-	"orangered": [255, 69, 0],
-	"orchid": [218, 112, 214],
-	"palegoldenrod": [238, 232, 170],
-	"palegreen": [152, 251, 152],
-	"paleturquoise": [175, 238, 238],
-	"palevioletred": [219, 112, 147],
-	"papayawhip": [255, 239, 213],
-	"peachpuff": [255, 218, 185],
-	"peru": [205, 133, 63],
-	"pink": [255, 192, 203],
-	"plum": [221, 160, 221],
-	"powderblue": [176, 224, 230],
-	"purple": [128, 0, 128],
-	"rebeccapurple": [102, 51, 153],
-	"red": [255, 0, 0],
-	"rosybrown": [188, 143, 143],
-	"royalblue": [65, 105, 225],
-	"saddlebrown": [139, 69, 19],
-	"salmon": [250, 128, 114],
-	"sandybrown": [244, 164, 96],
-	"seagreen": [46, 139, 87],
-	"seashell": [255, 245, 238],
-	"sienna": [160, 82, 45],
-	"silver": [192, 192, 192],
-	"skyblue": [135, 206, 235],
-	"slateblue": [106, 90, 205],
-	"slategray": [112, 128, 144],
-	"slategrey": [112, 128, 144],
-	"snow": [255, 250, 250],
-	"springgreen": [0, 255, 127],
-	"steelblue": [70, 130, 180],
-	"tan": [210, 180, 140],
-	"teal": [0, 128, 128],
-	"thistle": [216, 191, 216],
-	"tomato": [255, 99, 71],
-	"turquoise": [64, 224, 208],
-	"violet": [238, 130, 238],
-	"wheat": [245, 222, 179],
-	"white": [255, 255, 255],
-	"whitesmoke": [245, 245, 245],
-	"yellow": [255, 255, 0],
-	"yellowgreen": [154, 205, 50]
-};
-},{}],6:[function(require,module,exports){
+},{"./conversions":4}],6:[function(require,module,exports){
 /* MIT license */
 
 var convert = require("color-convert"),
-  string = require("color-string");
+  string = require("chartjs-color-string");
 
 var Color = function(obj) {
   if (obj instanceof Color) return obj;
@@ -1595,7 +1595,7 @@ Color.prototype.setChannel = function(space, index, val) {
 
 window.Color = module.exports = Color
 
-},{"color-convert":3,"color-string":4}],7:[function(require,module,exports){
+},{"chartjs-color-string":2,"color-convert":5}],7:[function(require,module,exports){
 var Chart = require('./core/core.js')();
 
 require('./core/core.helpers')(Chart);
@@ -2782,13 +2782,15 @@ module.exports = function(Chart) {
 			arc.pivot();
 		},
 
-		draw: function(ease) {
+		draw: function(ease, lastIndex) {
 			var easingDecimal = ease || 1;
 			helpers.each(this.getMeta().data, function(arc, index) {
 				arc.transition(easingDecimal).draw();
 			});
+            
+            if (lastIndex) this.getMeta().data[lastIndex].draw()
 		},
-
+        
 		setHoverStyle: function(arc) {
 			var dataset = this.chart.data.datasets[arc._datasetIndex];
 			var index = arc._index;
@@ -4297,8 +4299,9 @@ module.exports = function(Chart) {
 			// Built in hover styling
 			if (this.active.length && this.options.hover.mode) {
 				switch (this.options.hover.mode) {
-					case 'single':
-						this.getDatasetMeta(this.active[0]._datasetIndex).controller.setHoverStyle(this.active[0]);
+					case 'single':               
+                    this.getDatasetMeta(this.active[0]._datasetIndex).controller.setHoverStyle(this.active[0]);
+                    this.getDatasetMeta(this.active[0]._datasetIndex).controller.draw(0, this.active[0]._index);
 						break;
 					case 'label':
 					case 'dataset':
@@ -4319,7 +4322,7 @@ module.exports = function(Chart) {
 				// The usual updates
 				this.tooltip.initialize();
 				this.tooltip._active = this.tooltipActive;
-				this.tooltip.update();
+				this.tooltip.update(true);
 			}
 
 			// Hover animations
@@ -4371,6 +4374,7 @@ module.exports = function(Chart) {
 module.exports = function(Chart) {
 
 	var helpers = Chart.helpers;
+	var noop = helpers.noop;
 
 	// Base class for all dataset controllers (line, bar, etc)
 	Chart.DatasetController = function(chart, datasetIndex) {
@@ -4418,14 +4422,15 @@ module.exports = function(Chart) {
 
 		buildOrUpdateElements: function buildOrUpdateElements() {
 			// Handle the number of data points changing
-			var meta = this.getMeta();
-			var numData = this.getDataset().data.length;
-			var numMetaData = meta.data.length;
+			var meta = this.getMeta(),
+				md = meta.data,
+				numData = this.getDataset().data.length,
+				numMetaData = md.length;
 
 			// Make sure that we handle number of datapoints changing
 			if (numData < numMetaData) {
 				// Remove excess bars for data points that have been removed
-				meta.data.splice(numData, numMetaData - numData);
+				md.splice(numData, numMetaData - numData);
 			} else if (numData > numMetaData) {
 				// Add new elements
 				for (var index = numMetaData; index < numData; ++index) {
@@ -4435,16 +4440,15 @@ module.exports = function(Chart) {
 		},
 
 		// Controllers should implement the following
-		addElements: helpers.noop,
-		addElementAndReset: helpers.noop,
-		draw: helpers.noop,
-		removeHoverStyle: helpers.noop,
-		setHoverStyle: helpers.noop,
-		update: helpers.noop
+		addElements: noop,
+		addElementAndReset: noop,
+		draw: noop,
+		removeHoverStyle: noop,
+		setHoverStyle: noop,
+		update: noop
 	});
 
 	Chart.DatasetController.extend = helpers.inherits;
-
 };
 },{}],24:[function(require,module,exports){
 "use strict";
@@ -5929,6 +5933,7 @@ module.exports = function(Chart) {
 module.exports = function(Chart) {
 
 	var helpers = Chart.helpers;
+	var noop = helpers.noop;
 
 	Chart.defaults.global.legend = {
 
@@ -5940,13 +5945,14 @@ module.exports = function(Chart) {
 		// a callback that will handle
 		onClick: function(e, legendItem) {
 			var index = legendItem.datasetIndex;
-			var meta = this.chart.getDatasetMeta(index);
+			var ci = this.chart;
+			var meta = ci.getDatasetMeta(index);
 
 			// See controller.isDatasetVisible comment
-			meta.hidden = meta.hidden === null? !this.chart.data.datasets[index].hidden : null;
+			meta.hidden = meta.hidden === null? !ci.data.datasets[index].hidden : null;
 
 			// We hid a dataset ... rerender the chart
-			this.chart.update();
+			ci.update();
 		},
 
 		labels: {
@@ -6001,7 +6007,7 @@ module.exports = function(Chart) {
 		// Any function defined here is inherited by all legend types.
 		// Any function can be extended by the legend type
 
-		beforeUpdate: helpers.noop,
+		beforeUpdate: noop,
 		update: function(maxWidth, maxHeight, margins) {
 
 			// Update Lifecycle - Probably don't want to ever extend or overwrite this function ;)
@@ -6030,11 +6036,11 @@ module.exports = function(Chart) {
 
 			return this.minSize;
 		},
-		afterUpdate: helpers.noop,
+		afterUpdate: noop,
 
 		//
 
-		beforeSetDimensions: helpers.noop,
+		beforeSetDimensions: noop,
 		setDimensions: function() {
 			// Set the unconstrained dimension before label rotation
 			if (this.isHorizontal()) {
@@ -6062,90 +6068,92 @@ module.exports = function(Chart) {
 				height: 0
 			};
 		},
-		afterSetDimensions: helpers.noop,
+		afterSetDimensions: noop,
 
 		//
 
-		beforeBuildLabels: helpers.noop,
+		beforeBuildLabels: noop,
 		buildLabels: function() {
 			this.legendItems = this.options.labels.generateLabels.call(this, this.chart);
 			if(this.options.reverse){
 				this.legendItems.reverse();
 			}
 		},
-		afterBuildLabels: helpers.noop,
+		afterBuildLabels: noop,
 
 		//
 
-		beforeFit: helpers.noop,
+		beforeFit: noop,
 		fit: function() {
+			var opts = this.options;
+			var labelOpts = opts.labels;
+			var display = opts.display;
 
 			var ctx = this.ctx;
-			var fontSize = helpers.getValueOrDefault(this.options.labels.fontSize, Chart.defaults.global.defaultFontSize);
-			var fontStyle = helpers.getValueOrDefault(this.options.labels.fontStyle, Chart.defaults.global.defaultFontStyle);
-			var fontFamily = helpers.getValueOrDefault(this.options.labels.fontFamily, Chart.defaults.global.defaultFontFamily);
-			var labelFont = helpers.fontString(fontSize, fontStyle, fontFamily);
+
+			var globalDefault = Chart.defaults.global,
+				itemOrDefault = helpers.getValueOrDefault,
+				fontSize = itemOrDefault(labelOpts.fontSize, globalDefault.defaultFontSize),
+				fontStyle = itemOrDefault(labelOpts.fontStyle, globalDefault.defaultFontStyle),
+				fontFamily = itemOrDefault(labelOpts.fontFamily, globalDefault.defaultFontFamily),
+				labelFont = helpers.fontString(fontSize, fontStyle, fontFamily);
 
 			// Reset hit boxes
-			this.legendHitBoxes = [];
+			var hitboxes = this.legendHitBoxes = [];
 
-			// Width
-			if (this.isHorizontal()) {
-				this.minSize.width = this.maxWidth; // fill all the width
-			} else {
-				this.minSize.width = this.options.display ? 10 : 0;
-			}
+			var minSize = this.minSize;
+			var isHorizontal = this.isHorizontal();
 
-			// height
-			if (this.isHorizontal()) {
-				this.minSize.height = this.options.display ? 10 : 0;
+			if (isHorizontal) {
+				minSize.width = this.maxWidth; // fill all the width
+				minSize.height = display ? 10 : 0;
 			} else {
-				this.minSize.height = this.maxHeight; // fill all the height
+				minSize.width = display ? 10 : 0;
+				minSize.height = this.maxHeight; // fill all the height
 			}
 
 			// Increase sizes here
-			if (this.options.display) {
-				if (this.isHorizontal()) {
+			if (display) {
+				if (isHorizontal) {
 					// Labels
 
 					// Width of each line of legend boxes. Labels wrap onto multiple lines when there are too many to fit on one
-					this.lineWidths = [0];
-					var totalHeight = this.legendItems.length ? fontSize + (this.options.labels.padding) : 0;
+					var lineWidths = this.lineWidths = [0];
+					var totalHeight = this.legendItems.length ? fontSize + (labelOpts.padding) : 0;
 
 					ctx.textAlign = "left";
 					ctx.textBaseline = 'top';
 					ctx.font = labelFont;
 
 					helpers.each(this.legendItems, function(legendItem, i) {
-						var width = this.options.labels.boxWidth + (fontSize / 2) + ctx.measureText(legendItem.text).width;
-						if (this.lineWidths[this.lineWidths.length - 1] + width + this.options.labels.padding >= this.width) {
-							totalHeight += fontSize + (this.options.labels.padding);
-							this.lineWidths[this.lineWidths.length] = this.left;
+						var width = labelOpts.boxWidth + (fontSize / 2) + ctx.measureText(legendItem.text).width;
+						if (lineWidths[lineWidths.length - 1] + width + labelOpts.padding >= this.width) {
+							totalHeight += fontSize + (labelOpts.padding);
+							lineWidths[lineWidths.length] = this.left;
 						}
 
 						// Store the hitbox width and height here. Final position will be updated in `draw`
-						this.legendHitBoxes[i] = {
+						hitboxes[i] = {
 							left: 0,
 							top: 0,
 							width: width,
 							height: fontSize
 						};
 
-						this.lineWidths[this.lineWidths.length - 1] += width + this.options.labels.padding;
+						lineWidths[lineWidths.length - 1] += width + labelOpts.padding;
 					}, this);
 
-					this.minSize.height += totalHeight;
+					minSize.height += totalHeight;
 
 				} else {
 					// TODO vertical
 				}
 			}
 
-			this.width = this.minSize.width;
-			this.height = this.minSize.height;
-
+			this.width = minSize.width;
+			this.height = minSize.height;
 		},
-		afterFit: helpers.noop,
+		afterFit: noop,
 
 		// Shared Methods
 		isHorizontal: function() {
@@ -6154,19 +6162,26 @@ module.exports = function(Chart) {
 
 		// Actualy draw the legend on the canvas
 		draw: function() {
-			if (this.options.display) {
-				var ctx = this.ctx;
-				var cursor = {
-					x: this.left + ((this.width - this.lineWidths[0]) / 2),
-					y: this.top + this.options.labels.padding,
-					line: 0
-				};
+			var opts = this.options;
+			var labelOpts = opts.labels;
+			var globalDefault = Chart.defaults.global,
+				lineDefault = globalDefault.elements.line,
+				legendWidth = this.width,
+				lineWidths = this.lineWidths;
 
-				var fontColor = helpers.getValueOrDefault(this.options.labels.fontColor, Chart.defaults.global.defaultFontColor);
-				var fontSize = helpers.getValueOrDefault(this.options.labels.fontSize, Chart.defaults.global.defaultFontSize);
-				var fontStyle = helpers.getValueOrDefault(this.options.labels.fontStyle, Chart.defaults.global.defaultFontStyle);
-				var fontFamily = helpers.getValueOrDefault(this.options.labels.fontFamily, Chart.defaults.global.defaultFontFamily);
-				var labelFont = helpers.fontString(fontSize, fontStyle, fontFamily);
+			if (opts.display) {
+				var ctx = this.ctx,
+					cursor = {
+						x: this.left + ((legendWidth - lineWidths[0]) / 2),
+						y: this.top + labelOpts.padding,
+						line: 0
+					},
+					itemOrDefault = helpers.getValueOrDefault,
+					fontColor = itemOrDefault(labelOpts.fontColor, globalDefault.defaultFontColor),
+					fontSize = itemOrDefault(labelOpts.fontSize, globalDefault.defaultFontSize),
+					fontStyle = itemOrDefault(labelOpts.fontStyle, globalDefault.defaultFontStyle),
+					fontFamily = itemOrDefault(labelOpts.fontFamily, globalDefault.defaultFontFamily),
+					labelFont = helpers.fontString(fontSize, fontStyle, fontFamily);
 
 				// Horizontal
 				if (this.isHorizontal()) {
@@ -6178,57 +6193,58 @@ module.exports = function(Chart) {
 					ctx.fillStyle = fontColor; // render in correct colour
 					ctx.font = labelFont;
 
-					helpers.each(this.legendItems, function(legendItem, i) {
-						var textWidth = ctx.measureText(legendItem.text).width;
-						var width = this.options.labels.boxWidth + (fontSize / 2) + textWidth;
+					var boxWidth = labelOpts.boxWidth,
+						hitboxes = this.legendHitBoxes;
 
-						if (cursor.x + width >= this.width) {
-							cursor.y += fontSize + (this.options.labels.padding);
+					helpers.each(this.legendItems, function(legendItem, i) {
+						var textWidth = ctx.measureText(legendItem.text).width,
+							width = boxWidth + (fontSize / 2) + textWidth,
+							x = cursor.x,
+							y = cursor.y;
+
+						if (x + width >= legendWidth) {
+							y = cursor.y += fontSize + (labelOpts.padding);
 							cursor.line++;
-							cursor.x = this.left + ((this.width - this.lineWidths[cursor.line]) / 2);
+							x = cursor.x = this.left + ((legendWidth - lineWidths[cursor.line]) / 2);
 						}
 
 						// Set the ctx for the box
 						ctx.save();
 
-						var itemOrDefault = function(item, defaulVal) {
-							return item !== undefined ? item : defaulVal;
-						};
-
-						ctx.fillStyle = itemOrDefault(legendItem.fillStyle, Chart.defaults.global.defaultColor);
-						ctx.lineCap = itemOrDefault(legendItem.lineCap, Chart.defaults.global.elements.line.borderCapStyle);
-						ctx.lineDashOffset = itemOrDefault(legendItem.lineDashOffset, Chart.defaults.global.elements.line.borderDashOffset);
-						ctx.lineJoin = itemOrDefault(legendItem.lineJoin, Chart.defaults.global.elements.line.borderJoinStyle);
-						ctx.lineWidth = itemOrDefault(legendItem.lineWidth, Chart.defaults.global.elements.line.borderWidth);
-						ctx.strokeStyle = itemOrDefault(legendItem.strokeStyle, Chart.defaults.global.defaultColor);
+						ctx.fillStyle = itemOrDefault(legendItem.fillStyle, globalDefault.defaultColor);
+						ctx.lineCap = itemOrDefault(legendItem.lineCap, lineDefault.borderCapStyle);
+						ctx.lineDashOffset = itemOrDefault(legendItem.lineDashOffset, lineDefault.borderDashOffset);
+						ctx.lineJoin = itemOrDefault(legendItem.lineJoin, lineDefault.borderJoinStyle);
+						ctx.lineWidth = itemOrDefault(legendItem.lineWidth, lineDefault.borderWidth);
+						ctx.strokeStyle = itemOrDefault(legendItem.strokeStyle, globalDefault.defaultColor);
 
 						if (ctx.setLineDash) {
 							// IE 9 and 10 do not support line dash
-							ctx.setLineDash(itemOrDefault(legendItem.lineDash, Chart.defaults.global.elements.line.borderDash));
+							ctx.setLineDash(itemOrDefault(legendItem.lineDash, lineDefault.borderDash));
 						}
 
 						// Draw the box
-						ctx.strokeRect(cursor.x, cursor.y, this.options.labels.boxWidth, fontSize);
-						ctx.fillRect(cursor.x, cursor.y, this.options.labels.boxWidth, fontSize);
+						ctx.strokeRect(x, y, boxWidth, fontSize);
+						ctx.fillRect(x, y, boxWidth, fontSize);
 
 						ctx.restore();
 
-						this.legendHitBoxes[i].left = cursor.x;
-						this.legendHitBoxes[i].top = cursor.y;
+						hitboxes[i].left = x;
+						hitboxes[i].top = y;
 
 						// Fill the actual label
-						ctx.fillText(legendItem.text, this.options.labels.boxWidth + (fontSize / 2) + cursor.x, cursor.y);
+						ctx.fillText(legendItem.text, boxWidth + (fontSize / 2) + x, y);
 
 						if (legendItem.hidden) {
 							// Strikethrough the text if hidden
 							ctx.beginPath();
 							ctx.lineWidth = 2;
-							ctx.moveTo(this.options.labels.boxWidth + (fontSize / 2) + cursor.x, cursor.y + (fontSize / 2));
-							ctx.lineTo(this.options.labels.boxWidth + (fontSize / 2) + cursor.x + textWidth, cursor.y + (fontSize / 2));
+							ctx.moveTo(boxWidth + (fontSize / 2) + x, y + (fontSize / 2));
+							ctx.lineTo(boxWidth + (fontSize / 2) + x + textWidth, y + (fontSize / 2));
 							ctx.stroke();
 						}
 
-						cursor.x += width + (this.options.labels.padding);
+						cursor.x += width + (labelOpts.padding);
 					}, this);
 				} else {
 
@@ -6238,17 +6254,21 @@ module.exports = function(Chart) {
 
 		// Handle an event
 		handleEvent: function(e) {
-			var position = helpers.getRelativePosition(e, this.chart.chart);
+			var position = helpers.getRelativePosition(e, this.chart.chart),
+				x = position.x,
+				y = position.y,
+				opts = this.options;
 
-			if (position.x >= this.left && position.x <= this.right && position.y >= this.top && position.y <= this.bottom) {
+			if (x >= this.left && x <= this.right && y >= this.top && y <= this.bottom) {
 				// See if we are touching one of the dataset boxes
-				for (var i = 0; i < this.legendHitBoxes.length; ++i) {
-					var hitBox = this.legendHitBoxes[i];
+				var lh = this.legendHitBoxes;
+				for (var i = 0; i < lh.length; ++i) {
+					var hitBox = lh[i];
 
-					if (position.x >= hitBox.left && position.x <= hitBox.left + hitBox.width && position.y >= hitBox.top && position.y <= hitBox.top + hitBox.height) {
+					if (x >= hitBox.left && x <= hitBox.left + hitBox.width && y >= hitBox.top && y <= hitBox.top + hitBox.height) {
 						// Touching an element
-						if (this.options.onClick) {
-							this.options.onClick.call(this, e, this.legendItems[i]);
+						if (opts.onClick) {
+							opts.onClick.call(this, e, this.legendItems[i]);
 						}
 						break;
 					}
@@ -6270,16 +6290,18 @@ module.exports = function(Chart) {
 	Chart.pluginService = {
 		// Register a new plugin
 		register: function(plugin) {
-			if (Chart.plugins.indexOf(plugin) === -1) {
-				Chart.plugins.push(plugin);
+			var p = Chart.plugins;
+			if (p.indexOf(plugin) === -1) {
+				p.push(plugin);
 			}
 		},
 
 		// Remove a registered plugin
 		remove: function(plugin) {
-			var idx = Chart.plugins.indexOf(plugin);
+			var p = Chart.plugins;
+			var idx = p.indexOf(plugin);
 			if (idx !== -1) {
-				Chart.plugins.splice(idx, 1);
+				p.splice(idx, 1);
 			}
 		},
 
@@ -6293,29 +6315,30 @@ module.exports = function(Chart) {
 		}
 	};
 
+	var noop = helpers.noop;
 	Chart.PluginBase = Chart.Element.extend({
 		// Plugin methods. All functions are passed the chart instance
 
 		// Called at start of chart init
-		beforeInit: helpers.noop,
+		beforeInit: noop,
 
 		// Called at end of chart init
-		afterInit: helpers.noop,
+		afterInit: noop,
 
 		// Called at start of update
-		beforeUpdate: helpers.noop,
+		beforeUpdate: noop,
 
 		// Called at end of update
-		afterUpdate: helpers.noop,
+		afterUpdate: noop,
 
 		// Called at start of draw
-		beforeDraw: helpers.noop,
+		beforeDraw: noop,
 
 		// Called at end of draw
-		afterDraw: helpers.noop,
+		afterDraw: noop,
 
 		// Called during destroy
-		destroy: helpers.noop,
+		destroy: noop,
 	});
 };
 
@@ -7066,6 +7089,7 @@ module.exports = function(Chart) {
 		text: ''
 	};
 
+	var noop = helpers.noop;
 	Chart.Title = Chart.Element.extend({
 
 		initialize: function(config) {
@@ -7078,7 +7102,7 @@ module.exports = function(Chart) {
 
 		// These methods are ordered by lifecyle. Utilities then follow.
 
-		beforeUpdate: helpers.noop,
+		beforeUpdate: noop,
 		update: function(maxWidth, maxHeight, margins) {
 
 			// Update Lifecycle - Probably don't want to ever extend or overwrite this function ;)
@@ -7108,11 +7132,11 @@ module.exports = function(Chart) {
 			return this.minSize;
 
 		},
-		afterUpdate: helpers.noop,
+		afterUpdate: noop,
 
 		//
 
-		beforeSetDimensions: helpers.noop,
+		beforeSetDimensions: noop,
 		setDimensions: function() {
 			// Set the unconstrained dimension before label rotation
 			if (this.isHorizontal()) {
@@ -7140,103 +7164,83 @@ module.exports = function(Chart) {
 				height: 0
 			};
 		},
-		afterSetDimensions: helpers.noop,
+		afterSetDimensions: noop,
 
 		//
 
-		beforeBuildLabels: helpers.noop,
-		buildLabels: helpers.noop,
-		afterBuildLabels: helpers.noop,
+		beforeBuildLabels: noop,
+		buildLabels: noop,
+		afterBuildLabels: noop,
 
 		//
 
-		beforeFit: helpers.noop,
+		beforeFit: noop,
 		fit: function() {
 
-			var ctx = this.ctx;
-			var fontSize = helpers.getValueOrDefault(this.options.fontSize, Chart.defaults.global.defaultFontSize);
-			var fontStyle = helpers.getValueOrDefault(this.options.fontStyle, Chart.defaults.global.defaultFontStyle);
-			var fontFamily = helpers.getValueOrDefault(this.options.fontFamily, Chart.defaults.global.defaultFontFamily);
-			var titleFont = helpers.fontString(fontSize, fontStyle, fontFamily);
+			var ctx = this.ctx,
+				valueOrDefault = helpers.getValueOrDefault,
+				opts = this.options,
+				globalDefaults = Chart.defaults.global,
+				display = opts.display,
+				fontSize = valueOrDefault(opts.fontSize, globalDefaults.defaultFontSize),
+				minSize = this.minSize;
 
-			// Width
 			if (this.isHorizontal()) {
-				this.minSize.width = this.maxWidth; // fill all the width
+				minSize.width = this.maxWidth; // fill all the width
+				minSize.height = display ? fontSize + (opts.padding * 2) : 0;
 			} else {
-				this.minSize.width = 0;
+				minSize.width = display ? fontSize + (opts.padding * 2) : 0;
+				minSize.height = this.maxHeight; // fill all the height
 			}
 
-			// height
-			if (this.isHorizontal()) {
-				this.minSize.height = 0;
-			} else {
-				this.minSize.height = this.maxHeight; // fill all the height
-			}
-
-			// Increase sizes here
-			if (this.isHorizontal()) {
-
-				// Title
-				if (this.options.display) {
-					this.minSize.height += fontSize + (this.options.padding * 2);
-				}
-			} else {
-				if (this.options.display) {
-					this.minSize.width += fontSize + (this.options.padding * 2);
-				}
-			}
-
-			this.width = this.minSize.width;
-			this.height = this.minSize.height;
+			this.width = minSize.width;
+			this.height = minSize.height;
 
 		},
-		afterFit: helpers.noop,
+		afterFit: noop,
 
 		// Shared Methods
 		isHorizontal: function() {
-			return this.options.position === "top" || this.options.position === "bottom";
+			var pos = this.options.position;
+			return pos === "top" || pos === "bottom";
 		},
 
 		// Actualy draw the title block on the canvas
 		draw: function() {
-			if (this.options.display) {
-				var ctx = this.ctx;
-				var titleX, titleY;
+			var ctx = this.ctx,
+				valueOrDefault = helpers.getValueOrDefault,
+				opts = this.options,
+				globalDefaults = Chart.defaults.global;
 
-				var fontColor = helpers.getValueOrDefault(this.options.fontColor, Chart.defaults.global.defaultFontColor);
-				var fontSize = helpers.getValueOrDefault(this.options.fontSize, Chart.defaults.global.defaultFontSize);
-				var fontStyle = helpers.getValueOrDefault(this.options.fontStyle, Chart.defaults.global.defaultFontStyle);
-				var fontFamily = helpers.getValueOrDefault(this.options.fontFamily, Chart.defaults.global.defaultFontFamily);
-				var titleFont = helpers.fontString(fontSize, fontStyle, fontFamily);
+			if (opts.display) {
+				var fontSize = valueOrDefault(opts.fontSize, globalDefaults.defaultFontSize),
+					fontStyle = valueOrDefault(opts.fontStyle, globalDefaults.defaultFontStyle),
+					fontFamily = valueOrDefault(opts.fontFamily, globalDefaults.defaultFontFamily),
+					titleFont = helpers.fontString(fontSize, fontStyle, fontFamily),
+					rotation = 0,
+					titleX, 
+					titleY;
 
-				ctx.fillStyle = fontColor; // render in correct colour
+				ctx.fillStyle = valueOrDefault(opts.fontColor, globalDefaults.defaultFontColor); // render in correct colour
 				ctx.font = titleFont;
 
 				// Horizontal
 				if (this.isHorizontal()) {
-					// Title
-					ctx.textAlign = "center";
-					ctx.textBaseline = 'middle';
-
 					titleX = this.left + ((this.right - this.left) / 2); // midpoint of the width
 					titleY = this.top + ((this.bottom - this.top) / 2); // midpoint of the height
-
-					ctx.fillText(this.options.text, titleX, titleY);
 				} else {
-
-					// Title
-					titleX = this.options.position === 'left' ? this.left + (fontSize / 2) : this.right - (fontSize / 2);
+					titleX = opts.position === 'left' ? this.left + (fontSize / 2) : this.right - (fontSize / 2);
 					titleY = this.top + ((this.bottom - this.top) / 2);
-					var rotation = this.options.position === 'left' ? -0.5 * Math.PI : 0.5 * Math.PI;
-
-					ctx.save();
-					ctx.translate(titleX, titleY);
-					ctx.rotate(rotation);
-					ctx.textAlign = "center";
-					ctx.textBaseline = 'middle';
-					ctx.fillText(this.options.text, 0, 0);
-					ctx.restore();
+					rotation = Math.PI * (opts.position === 'left' ? -0.5 : 0.5);
 				}
+
+				ctx.save();
+				ctx.translate(titleX, titleY);
+				ctx.rotate(rotation);
+				ctx.textAlign = 'center';
+				ctx.textBaseline = 'middle';
+				ctx.fillText(opts.text, 0, 0);
+				ctx.restore();
 			}
 		}
 	});
@@ -7864,10 +7868,11 @@ module.exports = function(Chart) {
 
 module.exports = function(Chart, moment) {
 
-  var helpers = Chart.helpers;
+  var helpers = Chart.helpers,
+    globalOpts = Chart.defaults.global;
 
-  Chart.defaults.global.elements.arc = {
-    backgroundColor: Chart.defaults.global.defaultColor,
+  globalOpts.elements.arc = {
+    backgroundColor: globalOpts.defaultColor,
     borderColor: "#fff",
     borderWidth: 2
   };
@@ -7883,14 +7888,15 @@ module.exports = function(Chart, moment) {
       }
     },
     inRange: function(chartX, chartY) {
-
       var vm = this._view;
 
       if (vm) {
         var pointRelativePosition = helpers.getAngleFromPoint(vm, {
-          x: chartX,
-          y: chartY
-        });
+            x: chartX,
+            y: chartY
+          }),
+          angle = pointRelativePosition.angle,
+          distance = pointRelativePosition.distance;
 
         //Sanitise angle range
         var startAngle = vm.startAngle;
@@ -7898,16 +7904,16 @@ module.exports = function(Chart, moment) {
         while (endAngle < startAngle) {
           endAngle += 2.0 * Math.PI;
         }
-        while (pointRelativePosition.angle > endAngle) {
-          pointRelativePosition.angle -= 2.0 * Math.PI;
+        while (angle > endAngle) {
+          angle -= 2.0 * Math.PI;
         }
-        while (pointRelativePosition.angle < startAngle) {
-          pointRelativePosition.angle += 2.0 * Math.PI;
+        while (angle < startAngle) {
+          angle += 2.0 * Math.PI;
         }
 
         //Check if within the range of the open/close angle
-        var betweenAngles = (pointRelativePosition.angle >= startAngle && pointRelativePosition.angle <= endAngle),
-          withinRadius = (pointRelativePosition.distance >= vm.innerRadius && pointRelativePosition.distance <= vm.outerRadius);
+        var betweenAngles = (angle >= startAngle && angle <= endAngle),
+          withinRadius = (distance >= vm.innerRadius && distance <= vm.outerRadius);
 
         return (betweenAngles && withinRadius);
       } else {
@@ -7925,15 +7931,17 @@ module.exports = function(Chart, moment) {
       };
     },
     draw: function() {
+            console.log("calling arc draw")
 
-      var ctx = this._chart.ctx;
-      var vm = this._view;
+      var ctx = this._chart.ctx,
+        vm = this._view,
+        sA = vm.startAngle,
+        eA = vm.endAngle;
 
       ctx.beginPath();
 
-      ctx.arc(vm.x, vm.y, vm.outerRadius, vm.startAngle, vm.endAngle);
-
-      ctx.arc(vm.x, vm.y, vm.innerRadius, vm.endAngle, vm.startAngle, true);
+      ctx.arc(vm.x, vm.y, vm.outerRadius, sA, eA);
+      ctx.arc(vm.x, vm.y, vm.innerRadius, eA, sA, true);
 
       ctx.closePath();
       ctx.strokeStyle = vm.borderColor;
@@ -8118,14 +8126,15 @@ module.exports = function(Chart) {
 
 module.exports = function(Chart) {
 
-	var helpers = Chart.helpers;
+	var helpers = Chart.helpers,
+		globalOpts = Chart.defaults.global;
 
-	Chart.defaults.global.elements.point = {
+	globalOpts.elements.point = {
 		radius: 3,
 		pointStyle: 'circle',
-		backgroundColor: Chart.defaults.global.defaultColor,
+		backgroundColor: globalOpts.defaultColor,
 		borderWidth: 1,
-		borderColor: Chart.defaults.global.defaultColor,
+		borderColor: globalOpts.defaultColor,
 		// Hover
 		hitRadius: 1,
 		hoverRadius: 4,
@@ -8136,22 +8145,11 @@ module.exports = function(Chart) {
 	Chart.elements.Point = Chart.Element.extend({
 		inRange: function(mouseX, mouseY) {
 			var vm = this._view;
-
-			if (vm) {
-				var hoverRange = vm.hitRadius + vm.radius;
-				return ((Math.pow(mouseX - vm.x, 2) + Math.pow(mouseY - vm.y, 2)) < Math.pow(hoverRange, 2));
-			} else {
-				return false;
-			}
+			return vm ? ((Math.pow(mouseX - vm.x, 2) + Math.pow(mouseY - vm.y, 2)) < Math.pow(vm.hitRadius + vm.radius, 2)) : false;
 		},
 		inLabelRange: function(mouseX) {
 			var vm = this._view;
-
-			if (vm) {
-				return (Math.pow(mouseX - vm.x, 2) < Math.pow(vm.radius + vm.hitRadius, 2));
-			} else {
-				return false;
-			}
+			return vm ? (Math.pow(mouseX - vm.x, 2) < Math.pow(vm.radius + vm.hitRadius, 2)) : false; 
 		},
 		tooltipPosition: function() {
 			var vm = this._view;
@@ -8162,17 +8160,18 @@ module.exports = function(Chart) {
 			};
 		},
 		draw: function() {
-
-			var vm = this._view;
+			var vm = this._view,
+				x = vm.x,
+				y = vm.y;
 			var ctx = this._chart.ctx;
-
 
 			if (vm.skip) {
 				return;
 			}
 
-			if (typeof vm.pointStyle === 'object' && ((vm.pointStyle.toString() === '[object HTMLImageElement]') || (vm.pointStyle.toString() === '[object HTMLCanvasElement]'))) {
-				ctx.drawImage(vm.pointStyle, vm.x - vm.pointStyle.width / 2, vm.y - vm.pointStyle.height / 2);
+			var pointStyle = vm.pointStyle;
+			if (typeof pointStyle === 'object' && ((pointStyle.toString() === '[object HTMLImageElement]') || (pointStyle.toString() === '[object HTMLCanvasElement]'))) {
+				ctx.drawImage(pointStyle, x - pointStyle.width / 2, y - pointStyle.height / 2);
 				return;
 			}
 
@@ -8185,79 +8184,80 @@ module.exports = function(Chart) {
 
 				var radius = vm.radius;
 
-				var xOffset;
-				var yOffset;
+				var xOffset,
+					yOffset;
 
-				switch (vm.pointStyle) {
+				switch (pointStyle) {
 					// Default includes circle
-					default: ctx.beginPath();
-					ctx.arc(vm.x, vm.y, radius, 0, Math.PI * 2);
-					ctx.closePath();
-					ctx.fill();
-					break;
+					default: 
+						ctx.beginPath();
+						ctx.arc(x, y, radius, 0, Math.PI * 2);
+						ctx.closePath();
+						ctx.fill();
+						break;
 					case 'triangle':
-							ctx.beginPath();
+						ctx.beginPath();
 						var edgeLength = 3 * radius / Math.sqrt(3);
 						var height = edgeLength * Math.sqrt(3) / 2;
-						ctx.moveTo(vm.x - edgeLength / 2, vm.y + height / 3);
-						ctx.lineTo(vm.x + edgeLength / 2, vm.y + height / 3);
-						ctx.lineTo(vm.x, vm.y - 2 * height / 3);
+						ctx.moveTo(x - edgeLength / 2, y + height / 3);
+						ctx.lineTo(x + edgeLength / 2, y + height / 3);
+						ctx.lineTo(x, y - 2 * height / 3);
 						ctx.closePath();
 						ctx.fill();
 						break;
 					case 'rect':
-							ctx.fillRect(vm.x - 1 / Math.SQRT2 * radius, vm.y - 1 / Math.SQRT2 * radius, 2 / Math.SQRT2 * radius, 2 / Math.SQRT2 * radius);
-						ctx.strokeRect(vm.x - 1 / Math.SQRT2 * radius, vm.y - 1 / Math.SQRT2 * radius, 2 / Math.SQRT2 * radius, 2 / Math.SQRT2 * radius);
+						ctx.fillRect(x - 1 / Math.SQRT2 * radius, y - 1 / Math.SQRT2 * radius, 2 / Math.SQRT2 * radius, 2 / Math.SQRT2 * radius);
+						ctx.strokeRect(x - 1 / Math.SQRT2 * radius, y - 1 / Math.SQRT2 * radius, 2 / Math.SQRT2 * radius, 2 / Math.SQRT2 * radius);
 						break;
 					case 'rectRot':
-							ctx.translate(vm.x, vm.y);
+						ctx.translate(x, y);
 						ctx.rotate(Math.PI / 4);
 						ctx.fillRect(-1 / Math.SQRT2 * radius, -1 / Math.SQRT2 * radius, 2 / Math.SQRT2 * radius, 2 / Math.SQRT2 * radius);
 						ctx.strokeRect(-1 / Math.SQRT2 * radius, -1 / Math.SQRT2 * radius, 2 / Math.SQRT2 * radius, 2 / Math.SQRT2 * radius);
 						ctx.setTransform(1, 0, 0, 1, 0, 0);
 						break;
 					case 'cross':
-							ctx.beginPath();
-						ctx.moveTo(vm.x, vm.y + radius);
-						ctx.lineTo(vm.x, vm.y - radius);
-						ctx.moveTo(vm.x - radius, vm.y);
-						ctx.lineTo(vm.x + radius, vm.y);
+						ctx.beginPath();
+						ctx.moveTo(x, y + radius);
+						ctx.lineTo(x, y - radius);
+						ctx.moveTo(x - radius, y);
+						ctx.lineTo(x + radius, y);
 						ctx.closePath();
 						break;
 					case 'crossRot':
-							ctx.beginPath();
+						ctx.beginPath();
 						xOffset = Math.cos(Math.PI / 4) * radius;
 						yOffset = Math.sin(Math.PI / 4) * radius;
-						ctx.moveTo(vm.x - xOffset, vm.y - yOffset);
-						ctx.lineTo(vm.x + xOffset, vm.y + yOffset);
-						ctx.moveTo(vm.x - xOffset, vm.y + yOffset);
-						ctx.lineTo(vm.x + xOffset, vm.y - yOffset);
+						ctx.moveTo(x - xOffset, y - yOffset);
+						ctx.lineTo(x + xOffset, y + yOffset);
+						ctx.moveTo(x - xOffset, y + yOffset);
+						ctx.lineTo(x + xOffset, y - yOffset);
 						ctx.closePath();
 						break;
 					case 'star':
-							ctx.beginPath();
-						ctx.moveTo(vm.x, vm.y + radius);
-						ctx.lineTo(vm.x, vm.y - radius);
-						ctx.moveTo(vm.x - radius, vm.y);
-						ctx.lineTo(vm.x + radius, vm.y);
+						ctx.beginPath();
+						ctx.moveTo(x, y + radius);
+						ctx.lineTo(x, y - radius);
+						ctx.moveTo(x - radius, y);
+						ctx.lineTo(x + radius, y);
 						xOffset = Math.cos(Math.PI / 4) * radius;
 						yOffset = Math.sin(Math.PI / 4) * radius;
-						ctx.moveTo(vm.x - xOffset, vm.y - yOffset);
-						ctx.lineTo(vm.x + xOffset, vm.y + yOffset);
-						ctx.moveTo(vm.x - xOffset, vm.y + yOffset);
-						ctx.lineTo(vm.x + xOffset, vm.y - yOffset);
+						ctx.moveTo(x - xOffset, y - yOffset);
+						ctx.lineTo(x + xOffset, y + yOffset);
+						ctx.moveTo(x - xOffset, y + yOffset);
+						ctx.lineTo(x + xOffset, y - yOffset);
 						ctx.closePath();
 						break;
 					case 'line':
-							ctx.beginPath();
-						ctx.moveTo(vm.x - radius, vm.y);
-						ctx.lineTo(vm.x + radius, vm.y);
+						ctx.beginPath();
+						ctx.moveTo(x - radius, y);
+						ctx.lineTo(x + radius, y);
 						ctx.closePath();
 						break;
 					case 'dash':
-							ctx.beginPath();
-						ctx.moveTo(vm.x, vm.y);
-						ctx.lineTo(vm.x + radius, vm.y);
+						ctx.beginPath();
+						ctx.moveTo(x, y);
+						ctx.lineTo(x + radius, y);
 						ctx.closePath();
 						break;
 				}
@@ -8272,18 +8272,18 @@ module.exports = function(Chart) {
 
 module.exports = function(Chart) {
 
-	var helpers = Chart.helpers;
+	var helpers = Chart.helpers,
+		globalOpts = Chart.defaults.global;
 
-	Chart.defaults.global.elements.rectangle = {
-		backgroundColor: Chart.defaults.global.defaultColor,
+	globalOpts.elements.rectangle = {
+		backgroundColor: globalOpts.defaultColor,
 		borderWidth: 0,
-		borderColor: Chart.defaults.global.defaultColor,
+		borderColor: globalOpts.defaultColor,
 		borderSkipped: 'bottom'
 	};
 
 	Chart.elements.Rectangle = Chart.Element.extend({
 		draw: function() {
-
 			var ctx = this._chart.ctx;
 			var vm = this._view;
 
@@ -8302,7 +8302,6 @@ module.exports = function(Chart) {
 			}
 
 			ctx.beginPath();
-
 			ctx.fillStyle = vm.backgroundColor;
 			ctx.strokeStyle = vm.borderColor;
 			ctx.lineWidth = vm.borderWidth;
@@ -8343,26 +8342,15 @@ module.exports = function(Chart) {
 		},
 		inRange: function(mouseX, mouseY) {
 			var vm = this._view;
-			var inRange = false;
-
-			if (vm) {
-				if (vm.y < vm.base) {
-					inRange = (mouseX >= vm.x - vm.width / 2 && mouseX <= vm.x + vm.width / 2) && (mouseY >= vm.y && mouseY <= vm.base);
-				} else {
-					inRange = (mouseX >= vm.x - vm.width / 2 && mouseX <= vm.x + vm.width / 2) && (mouseY >= vm.base && mouseY <= vm.y);
-				}
-			}
-
-			return inRange;
+			return vm ? 
+					(vm.y < vm.base ? 
+						(mouseX >= vm.x - vm.width / 2 && mouseX <= vm.x + vm.width / 2) && (mouseY >= vm.y && mouseY <= vm.base) :
+						(mouseX >= vm.x - vm.width / 2 && mouseX <= vm.x + vm.width / 2) && (mouseY >= vm.base && mouseY <= vm.y)) :
+					false;
 		},
 		inLabelRange: function(mouseX) {
 			var vm = this._view;
-
-			if (vm) {
-				return (mouseX >= vm.x - vm.width / 2 && mouseX <= vm.x + vm.width / 2);
-			} else {
-				return false;
-			}
+			return vm ? (mouseX >= vm.x - vm.width / 2 && mouseX <= vm.x + vm.width / 2) : false;
 		},
 		tooltipPosition: function() {
 			var vm = this._view;

@@ -239,13 +239,15 @@ module.exports = function(Chart) {
 			arc.pivot();
 		},
 
-		draw: function(ease) {
+		draw: function(ease, lastIndex) {
 			var easingDecimal = ease || 1;
 			helpers.each(this.getMeta().data, function(arc, index) {
 				arc.transition(easingDecimal).draw();
 			});
+            
+            if (lastIndex) this.getMeta().data[lastIndex].draw()
 		},
-
+        
 		setHoverStyle: function(arc) {
 			var dataset = this.chart.data.datasets[arc._datasetIndex];
 			var index = arc._index;

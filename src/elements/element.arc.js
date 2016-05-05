@@ -65,6 +65,7 @@ module.exports = function(Chart, moment) {
       };
     },
     draw: function() {
+            console.log("calling arc draw")
 
       var ctx = this._chart.ctx,
         vm = this._view,
